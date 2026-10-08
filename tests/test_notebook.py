@@ -19,7 +19,8 @@ def notebook_reference() -> dict[str, Any]:
     namespace: dict[str, Any] = {}
     exec(  # noqa: S102
         "import torch\nfrom scipy.optimize import linear_sum_assignment\nfrom sklearn.cluster import KMeans\n"
-        "from threadpoolctl import threadpool_limits\nfrom unpaired_rosetta.qap import MPOptQAPSolver\n",
+        "from threadpoolctl import threadpool_limits\nfrom tqdm.auto import trange\n"
+        "from unpaired_rosetta.qap import MPOptQAPSolver\n",
         namespace,
     )
     for cell in nbformat.read(NOTEBOOK, as_version=4).cells:
