@@ -1,0 +1,132 @@
+diff --git a/scripts/4_mini_vec2vec_alignment.py b/scripts/4_mini_vec2vec_alignment.py
+index 4956693..4a7566a 100644
+--- a/scripts/4_mini_vec2vec_alignment.py
++++ b/scripts/4_mini_vec2vec_alignment.py
+@@ -101,6 +101,12 @@ def sim(X, Y, center: bool = True):
+ 
+ 
+ def train_orthogonal_linear(X, Y):
++    # [repro patch] scipy needs host arrays. The Procrustes problem itself is
++    # tiny (d x d), so it stays on the CPU whatever --device is.
++    if torch.is_tensor(X):
++        X = X.detach().cpu().numpy()
++    if torch.is_tensor(Y):
++        Y = Y.detach().cpu().numpy()
+     solution, _ = orthogonal_procrustes(X, Y)
+     return tensor(solution)
+ 
+@@ -155,6 +161,12 @@ def aligned_centroids(
+             Y_train[torch.randperm(len(Y_train))[:subsample]],
+         )
+ 
++    # [repro patch] sklearn needs host arrays; clustering is ~1 s/run either way
++    if torch.is_tensor(X_train):
++        X_train = X_train.detach().cpu()
++    if torch.is_tensor(Y_train):
++        Y_train = Y_train.detach().cpu()
++
+     clusterer1 = KMeans(n_clusters=n_clusters)
+     # clusterer1 = SphericalKMeans(n_clusters=n_clusters, n_jobs=-1)
+     clusterer1.fit(X_train)
+@@ -206,6 +218,7 @@ def process_subjects(
+     normalize_embeddings: bool = True,
+     similarity_metric: Literal["cosine", "csls"] = "cosine",
+     save_every: int = 50,
++    device: str = "cpu",
+ ):
+ 
+     get_sim = get_csls_sim if similarity_metric == "csls" else cos_sim_matrix
+@@ -213,6 +226,16 @@ def process_subjects(
+     if normalize_embeddings:
+         X_train = N(X_train)
+         Y_train = N(Y_train)
++
++    # [repro patch] `device` only moves the same tensor ops to the GPU; every
++    # operation, order and hyperparameter is unchanged (default "cpu" is the
++    # original behaviour). The 3000-iteration refinement is ~60x faster there.
++    X_train = X_train.to(device)
++    Y_train = Y_train.to(device)
++    if X_test is not None:
++        X_test = X_test.to(device)
++    if Y_test is not None:
++        Y_test = Y_test.to(device)
+     # Stage 1: Match anchors (centroids) using a mini-vec2vec approach
+     all_centers1, all_centers2 = [], []
+     for _ in trange(n_runs_aligned_centroids, leave=False, desc="Matching centroids"):
+@@ -222,8 +245,8 @@ def process_subjects(
+         all_centers1.append(centers1)
+         all_centers2.append(centers2)
+ 
+-    all_centers1 = torch.cat(all_centers1, dim=0)
+-    all_centers2 = torch.cat(all_centers2, dim=0)
++    all_centers1 = torch.cat(all_centers1, dim=0).to(device)
++    all_centers2 = torch.cat(all_centers2, dim=0).to(device)
+ 
+     sim1 = get_sim(X_train, all_centers1)
+     sim2 = get_sim(Y_train, all_centers2)
+@@ -231,9 +254,9 @@ def process_subjects(
+ 
+     top_similar = sim_similarity.topk(dim=-1, k=top_k).indices
+ 
+-    coefs = torch.ones(top_k) / top_k  # N(1 / (1 + torch.arange(k))**.5, p=1) #
++    coefs = torch.ones(top_k, device=device) / top_k  # N(1 / (1 + torch.arange(k))**.5, p=1) #
+     Y_matched = Y_train[top_similar].transpose(-1, -2) @ coefs
+-    W = train_orthogonal_linear(X_train, Y_matched)
++    W = train_orthogonal_linear(X_train, Y_matched).to(device)
+ 
+     # Copy for saving the initial alignment before refinement
+     W_initial = W.clone()
+@@ -244,11 +267,13 @@ def process_subjects(
+     for i in (
+         pbar := trange(n_runs_refinement, leave=False, desc="Iterative refinement")
+     ):
+-        sample_points = X_train[torch.randperm(len(X_train))[:subsample_refinement]]
++        sample_points = X_train[
++            torch.randperm(len(X_train), device=device)[:subsample_refinement]
++        ]
+         sample_similarities = get_sim(sample_points @ W, Y_train)
+         neighbors = sample_similarities.topk(dim=-1, k=top_k_post_refinement).indices
+         sample_matched = Y_train[neighbors].mean(dim=1)
+-        W_new = train_orthogonal_linear(sample_points, sample_matched)
++        W_new = train_orthogonal_linear(sample_points, sample_matched).to(device)
+         effective_alpha = alpha_schedule(
+             i, initial=alpha, minimun=0.1, start=1500, end=2500
+         )
+@@ -292,7 +317,14 @@ def process_subjects(
+         "top_k_post_refinement": top_k_post_refinement,
+     }
+ 
+-    pck = {"W_initial": W_initial, "W": W, "metadata": metadata, "W_history": W_history}
++    # [repro patch] always hand back host tensors so the .pt files are
++    # device-independent
++    pck = {
++        "W_initial": W_initial.cpu(),
++        "W": W.cpu(),
++        "metadata": metadata,
++        "W_history": W_history.cpu(),
++    }
+     return pck
+ 
+ 
+@@ -411,6 +443,13 @@ def parse_args():
+         default=32,
+         help="Number of neighbors to use for initial matching",
+     )
++    # [repro patch]
++    parser.add_argument(
++        "--device",
++        type=str,
++        default="cpu",
++        help="Device for the tensor ops ('cpu' = original behaviour, 'cuda' is ~60x faster)",
++    )
+     # parser.add_argument(
+     #     "--normalize_embeddings",
+     #     action="store_true",
+@@ -483,6 +522,7 @@ def main():
+             top_k_post_refinement=args.top_k_post_refinement,
+             normalize_embeddings=True,
+             similarity_metric=args.similarity_metric,
++            device=args.device,  # [repro patch]
+         )
+         pck["subject_x"] = subject_x
+         pck["subject_y"] = subject_y

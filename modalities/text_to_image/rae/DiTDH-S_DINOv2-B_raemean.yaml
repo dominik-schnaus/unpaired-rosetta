@@ -1,0 +1,96 @@
+# The diffusion model of the text-to-image experiments (App. B): DiT-DH-S on the latents of the RAE with the
+# DINOv2-B (registers) encoder, conditioned on the mean-pooled RAE latent of the image itself instead of a class
+# label. No text or class information is used during training.
+stage_1:
+  target: stage1.RAE
+  params:
+    encoder_cls: 'Dinov2withNorm'
+    encoder_config_path: 'facebook/dinov2-with-registers-base'
+    encoder_input_size: 224
+    encoder_params:
+      dinov2_path: 'facebook/dinov2-with-registers-base'
+      normalize: true
+    decoder_config_path: 'configs/decoder/ViTXL'
+    pretrained_decoder_path: 'models/decoders/dinov2/wReg_base/ViTXL_n08/model.pt'
+    noise_tau: 0.0
+    reshape_to_2d: true
+    normalization_stat_path: 'models/stats/dinov2/wReg_base/imagenet1k/stat.pt'
+
+stage_2:
+  target: stage2.models.DDT.DiTwDDTHead
+  params:
+    input_size: 16
+    patch_size: 1
+    in_channels: 768
+    hidden_size: [384, 2048]
+    depth: [12, 2]
+    num_heads: [6, 16]
+    mlp_ratio: 4.0
+    class_dropout_prob: 0.1  # reused as guidance-embedding dropout for CFG
+    num_classes: 1000  # unused when guidance_dim is set
+    guidance_dim: 768
+    use_qknorm: false
+    use_swiglu: true
+    use_rope: true
+    use_rmsnorm: true
+    wo_shift: false
+    use_pos_embed: true
+
+# Frozen image-embedding encoder that provides the conditioning signal.
+# Conditioning = mean-pooled RAE encoder latents (DINOv2-B-wReg): free, no
+# separate guidance encoder pass.
+guidance_encoder:
+  target: rae_mean
+
+transport:
+  params:
+    path_type: 'Linear'
+    prediction: 'velocity'
+    loss_weight: null
+    time_dist_type: 'logit-normal_0_1'
+
+sampler:
+  mode: ODE
+  params:
+    sampling_method: 'euler'
+    num_steps: 50
+    atol: 1.0e-6
+    rtol: 1.0e-3
+    reverse: false
+
+guidance:
+  method: 'cfg'
+  scale: 1.0
+  t_min: 0.0
+  t_max: 1.0
+
+misc:
+  latent_size: [768, 16, 16] # [C, H, W]
+  num_classes: 1000
+  time_dist_shift_dim: 196608 # 16*16*768
+  time_dist_shift_base: 4096
+
+# no eval section: online FID evaluation needs labeled reference batches.
+
+training:
+  epochs: 400
+  global_batch_size: 256
+  grad_accum_steps: 1 # micro-batch 64 per A40
+  ema_decay: 0.9995
+  num_workers: 3
+  log_interval: 100
+  checkpoint_interval: 1
+  sample_every: 2000
+  clip_grad: 1.0
+  global_seed: 42
+  optimizer:
+    lr: 5.0e-5
+    betas: [0.9, 0.95]
+    weight_decay: 0.0
+  scheduler:
+    type: linear
+    warmup_epochs: 2
+    decay_end_epoch: 200
+    base_lr: 5.0e-5
+    final_lr: 5.0e-6
+    warmup_from_zero: false

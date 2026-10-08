@@ -1,0 +1,556 @@
+{
+ "types": [
+  {
+   "id": "CL:0000003",
+   "name": "native cell"
+  },
+  {
+   "id": "CL:0000050",
+   "name": "megakaryocyte-erythroid progenitor cell"
+  },
+  {
+   "id": "CL:0000057",
+   "name": "fibroblast"
+  },
+  {
+   "id": "CL:0000065",
+   "name": "ependymal cell"
+  },
+  {
+   "id": "CL:0000066",
+   "name": "epithelial cell"
+  },
+  {
+   "id": "CL:0000071",
+   "name": "blood vessel endothelial cell"
+  },
+  {
+   "id": "CL:0000077",
+   "name": "mesothelial cell"
+  },
+  {
+   "id": "CL:0000084",
+   "name": "T cell"
+  },
+  {
+   "id": "CL:0000091",
+   "name": "Kupffer cell"
+  },
+  {
+   "id": "CL:0000094",
+   "name": "granulocyte"
+  },
+  {
+   "id": "CL:0000097",
+   "name": "mast cell"
+  },
+  {
+   "id": "CL:0000099",
+   "name": "interneuron"
+  },
+  {
+   "id": "CL:0000115",
+   "name": "endothelial cell"
+  },
+  {
+   "id": "CL:0000127",
+   "name": "astrocyte"
+  },
+  {
+   "id": "CL:0000128",
+   "name": "oligodendrocyte"
+  },
+  {
+   "id": "CL:0000129",
+   "name": "microglial cell"
+  },
+  {
+   "id": "CL:0000134",
+   "name": "mesenchymal stem cell"
+  },
+  {
+   "id": "CL:0000138",
+   "name": "chondrocyte"
+  },
+  {
+   "id": "CL:0000145",
+   "name": "professional antigen presenting cell"
+  },
+  {
+   "id": "CL:0000158",
+   "name": "club cell"
+  },
+  {
+   "id": "CL:0000169",
+   "name": "type B pancreatic cell"
+  },
+  {
+   "id": "CL:0000171",
+   "name": "pancreatic A cell"
+  },
+  {
+   "id": "CL:0000173",
+   "name": "pancreatic D cell"
+  },
+  {
+   "id": "CL:0000182",
+   "name": "hepatocyte"
+  },
+  {
+   "id": "CL:0000192",
+   "name": "smooth muscle cell"
+  },
+  {
+   "id": "CL:0000216",
+   "name": "Sertoli cell"
+  },
+  {
+   "id": "CL:0000232",
+   "name": "erythrocyte"
+  },
+  {
+   "id": "CL:0000235",
+   "name": "macrophage"
+  },
+  {
+   "id": "CL:0000236",
+   "name": "B cell"
+  },
+  {
+   "id": "CL:0000312",
+   "name": "keratinocyte"
+  },
+  {
+   "id": "CL:0000359",
+   "name": "vascular associated smooth muscle cell"
+  },
+  {
+   "id": "CL:0000362",
+   "name": "epidermal cell"
+  },
+  {
+   "id": "CL:0000451",
+   "name": "dendritic cell"
+  },
+  {
+   "id": "CL:0000498",
+   "name": "inhibitory interneuron"
+  },
+  {
+   "id": "CL:0000499",
+   "name": "stromal cell"
+  },
+  {
+   "id": "CL:0000501",
+   "name": "granulosa cell"
+  },
+  {
+   "id": "CL:0000540",
+   "name": "neuron"
+  },
+  {
+   "id": "CL:0000542",
+   "name": "lymphocyte"
+  },
+  {
+   "id": "CL:0000547",
+   "name": "proerythroblast"
+  },
+  {
+   "id": "CL:0000559",
+   "name": "promonocyte"
+  },
+  {
+   "id": "CL:0000576",
+   "name": "monocyte"
+  },
+  {
+   "id": "CL:0000583",
+   "name": "alveolar macrophage"
+  },
+  {
+   "id": "CL:0000586",
+   "name": "germ cell"
+  },
+  {
+   "id": "CL:0000594",
+   "name": "skeletal muscle satellite cell"
+  },
+  {
+   "id": "CL:0000598",
+   "name": "pyramidal neuron"
+  },
+  {
+   "id": "CL:0000617",
+   "name": "GABAergic neuron"
+  },
+  {
+   "id": "CL:0000623",
+   "name": "natural killer cell"
+  },
+  {
+   "id": "CL:0000624",
+   "name": "CD4-positive, alpha-beta T cell"
+  },
+  {
+   "id": "CL:0000625",
+   "name": "CD8-positive, alpha-beta T cell"
+  },
+  {
+   "id": "CL:0000630",
+   "name": "supporting cell"
+  },
+  {
+   "id": "CL:0000644",
+   "name": "Bergmann glial cell"
+  },
+  {
+   "id": "CL:0000646",
+   "name": "basal cell"
+  },
+  {
+   "id": "CL:0000653",
+   "name": "podocyte"
+  },
+  {
+   "id": "CL:0000669",
+   "name": "pericyte"
+  },
+  {
+   "id": "CL:0000679",
+   "name": "glutamatergic neuron"
+  },
+  {
+   "id": "CL:0000738",
+   "name": "leukocyte"
+  },
+  {
+   "id": "CL:0000746",
+   "name": "cardiac muscle cell"
+  },
+  {
+   "id": "CL:0000763",
+   "name": "myeloid cell"
+  },
+  {
+   "id": "CL:0000765",
+   "name": "erythroblast"
+  },
+  {
+   "id": "CL:0000766",
+   "name": "myeloid leukocyte"
+  },
+  {
+   "id": "CL:0000771",
+   "name": "eosinophil"
+  },
+  {
+   "id": "CL:0000775",
+   "name": "neutrophil"
+  },
+  {
+   "id": "CL:0000784",
+   "name": "plasmacytoid dendritic cell"
+  },
+  {
+   "id": "CL:0000786",
+   "name": "plasma cell"
+  },
+  {
+   "id": "CL:0000788",
+   "name": "naive B cell"
+  },
+  {
+   "id": "CL:0000814",
+   "name": "mature NK T cell"
+  },
+  {
+   "id": "CL:0000816",
+   "name": "immature B cell"
+  },
+  {
+   "id": "CL:0000817",
+   "name": "precursor B cell"
+  },
+  {
+   "id": "CL:0000860",
+   "name": "classical monocyte"
+  },
+  {
+   "id": "CL:0000875",
+   "name": "non-classical monocyte"
+  },
+  {
+   "id": "CL:0000878",
+   "name": "central nervous system macrophage"
+  },
+  {
+   "id": "CL:0000893",
+   "name": "thymocyte"
+  },
+  {
+   "id": "CL:0000898",
+   "name": "naive T cell"
+  },
+  {
+   "id": "CL:0000988",
+   "name": "hematopoietic cell"
+  },
+  {
+   "id": "CL:0000990",
+   "name": "conventional dendritic cell"
+  },
+  {
+   "id": "CL:0001031",
+   "name": "cerebellar granule cell"
+  },
+  {
+   "id": "CL:0001065",
+   "name": "innate lymphoid cell"
+  },
+  {
+   "id": "CL:0001066",
+   "name": "erythroid progenitor cell, mammalian"
+  },
+  {
+   "id": "CL:0002048",
+   "name": "late pro-B cell"
+  },
+  {
+   "id": "CL:0002062",
+   "name": "type I pneumocyte"
+  },
+  {
+   "id": "CL:0002063",
+   "name": "type II pneumocyte"
+  },
+  {
+   "id": "CL:0002064",
+   "name": "pancreatic acinar cell"
+  },
+  {
+   "id": "CL:0002071",
+   "name": "enterocyte of epithelium of large intestine"
+  },
+  {
+   "id": "CL:0002079",
+   "name": "pancreatic ductal cell"
+  },
+  {
+   "id": "CL:0002094",
+   "name": "interstitial cell of ovary"
+  },
+  {
+   "id": "CL:0002138",
+   "name": "endothelial cell of lymphatic vessel"
+  },
+  {
+   "id": "CL:0002144",
+   "name": "capillary endothelial cell"
+  },
+  {
+   "id": "CL:0002187",
+   "name": "basal cell of epidermis"
+  },
+  {
+   "id": "CL:0002188",
+   "name": "glomerular endothelial cell"
+  },
+  {
+   "id": "CL:0002201",
+   "name": "renal beta-intercalated cell"
+  },
+  {
+   "id": "CL:0002204",
+   "name": "brush cell"
+  },
+  {
+   "id": "CL:0002250",
+   "name": "intestinal crypt stem cell"
+  },
+  {
+   "id": "CL:0002306",
+   "name": "epithelial cell of proximal tubule"
+  },
+  {
+   "id": "CL:0002319",
+   "name": "neural cell"
+  },
+  {
+   "id": "CL:0002326",
+   "name": "luminal epithelial cell of mammary gland"
+  },
+  {
+   "id": "CL:0002329",
+   "name": "basal epithelial cell of tracheobronchial tree"
+  },
+  {
+   "id": "CL:0002340",
+   "name": "luminal cell of prostate epithelium"
+  },
+  {
+   "id": "CL:0002341",
+   "name": "basal cell of prostate epithelium"
+  },
+  {
+   "id": "CL:0002350",
+   "name": "endocardial cell"
+  },
+  {
+   "id": "CL:0002393",
+   "name": "intermediate monocyte"
+  },
+  {
+   "id": "CL:0002394",
+   "name": "CD141-positive myeloid dendritic cell"
+  },
+  {
+   "id": "CL:0002410",
+   "name": "pancreatic stellate cell"
+  },
+  {
+   "id": "CL:0002453",
+   "name": "oligodendrocyte precursor cell"
+  },
+  {
+   "id": "CL:0002489",
+   "name": "double negative thymocyte"
+  },
+  {
+   "id": "CL:0002503",
+   "name": "adventitial cell"
+  },
+  {
+   "id": "CL:0002543",
+   "name": "vein endothelial cell"
+  },
+  {
+   "id": "CL:0002548",
+   "name": "fibroblast of cardiac tissue"
+  },
+  {
+   "id": "CL:0002553",
+   "name": "fibroblast of lung"
+  },
+  {
+   "id": "CL:0002573",
+   "name": "Schwann cell"
+  },
+  {
+   "id": "CL:0002598",
+   "name": "bronchial smooth muscle cell"
+  },
+  {
+   "id": "CL:0005011",
+   "name": "renal alpha-intercalated cell"
+  },
+  {
+   "id": "CL:0008001",
+   "name": "hematopoietic precursor cell"
+  },
+  {
+   "id": "CL:0008002",
+   "name": "skeletal muscle fiber"
+  },
+  {
+   "id": "CL:0008019",
+   "name": "mesenchymal cell"
+  },
+  {
+   "id": "CL:0008034",
+   "name": "mural cell"
+  },
+  {
+   "id": "CL:0011026",
+   "name": "progenitor cell"
+  },
+  {
+   "id": "CL:1000398",
+   "name": "endothelial cell of hepatic sinusoid"
+  },
+  {
+   "id": "CL:1000413",
+   "name": "endothelial cell of artery"
+  },
+  {
+   "id": "CL:1000487",
+   "name": "smooth muscle cell of prostate"
+  },
+  {
+   "id": "CL:1000768",
+   "name": "kidney connecting tubule epithelial cell"
+  },
+  {
+   "id": "CL:1000849",
+   "name": "kidney distal convoluted tubule epithelial cell"
+  },
+  {
+   "id": "CL:1001106",
+   "name": "kidney loop of Henle thick ascending limb epithelial cell"
+  },
+  {
+   "id": "CL:1001107",
+   "name": "kidney loop of Henle thin ascending limb epithelial cell"
+  },
+  {
+   "id": "CL:1001428",
+   "name": "bladder urothelial cell"
+  },
+  {
+   "id": "CL:1001431",
+   "name": "kidney collecting duct principal cell"
+  },
+  {
+   "id": "CL:1001603",
+   "name": "lung macrophage"
+  },
+  {
+   "id": "CL:2000059",
+   "name": "prostate gland microvascular endothelial cell"
+  },
+  {
+   "id": "CL:2000064",
+   "name": "ovarian surface epithelial cell"
+  },
+  {
+   "id": "CL:4023011",
+   "name": "lamp5 GABAergic cortical interneuron"
+  },
+  {
+   "id": "CL:4023013",
+   "name": "corticothalamic-projecting glutamatergic cortical neuron"
+  },
+  {
+   "id": "CL:4023015",
+   "name": "sncg GABAergic cortical interneuron"
+  },
+  {
+   "id": "CL:4023016",
+   "name": "vip GABAergic cortical interneuron"
+  },
+  {
+   "id": "CL:4023017",
+   "name": "sst GABAergic cortical interneuron"
+  },
+  {
+   "id": "CL:4023018",
+   "name": "pvalb GABAergic cortical interneuron"
+  },
+  {
+   "id": "CL:4023038",
+   "name": "L6b glutamatergic cortical neuron"
+  },
+  {
+   "id": "CL:4023040",
+   "name": "L2/3-6 intratelencephalic projecting glutamatergic cortical neuron"
+  },
+  {
+   "id": "CL:4023041",
+   "name": "L5 extratelencephalic projecting glutamatergic cortical neuron"
+  },
+  {
+   "id": "CL:4023051",
+   "name": "vascular leptomeningeal cell"
+  }
+ ]
+}

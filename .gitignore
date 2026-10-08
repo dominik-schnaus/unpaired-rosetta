@@ -1,0 +1,18 @@
+# environments and caches
+.pixi/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.pytest_cache/
+
+# official code cloned by the tests and by the data pipelines
+tests/**/official/
+modalities/**/official/
+
+# data and outputs (they live under UNPAIRED_ROSETTA_ROOT, by default ./storage)
+storage
+results/
+figures/
+checkpoints/
+data/
+*.pt

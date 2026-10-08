@@ -1,0 +1,15 @@
+[submodule "external/SUE"]
+	path = external/SUE
+	url = https://github.com/shaham-lab/SUE
+[submodule "external/STRUCTURE"]
+	path = external/STRUCTURE
+	url = https://github.com/mlbio-epfl/STRUCTURE
+[submodule "external/SOTAlign"]
+	path = external/SOTAlign
+	url = https://github.com/ExplainableML/SOTAlign
+[submodule "external/RAE"]
+	path = external/RAE
+	url = https://github.com/bytetriper/RAE.git
+[submodule "external/Scale-RAE"]
+	path = external/Scale-RAE
+	url = https://github.com/ZitengWangNYU/Scale-RAE

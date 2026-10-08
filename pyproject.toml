@@ -1,0 +1,385 @@
+[project]
+name = "unpaired-rosetta"
+version = "1.0.0"
+description = "Shared Geometry As A Rosetta Stone: Cross-Modal Alignment Without Paired Data"
+authors = [{ name = "Dominik Schnaus", email = "dominik.schnaus@tum.de" }]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+# The library (unpaired_rosetta/) needs only these. The rest is for data, baselines and experiments.
+dependencies = [
+    "torch>=2.2",
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "scikit-learn>=1.4",
+    "pylibmgm>=1.1.2,<2",  # MPOpt quadratic assignment solver (Hutschenreiter et al., 2021)
+    "tqdm",
+]
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["unpaired_rosetta"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [".*", "__pycache__", "official"]  # the cloned official code has test files of its own
+markers = [
+    "official: compares against a cloned official implementation (run tests/<name>/clone.sh first)",
+    "embeddings: needs the stored embeddings under UNPAIRED_ROSETTA_ROOT",
+    "gpu: needs a CUDA device",
+    "slow: takes more than a minute",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["external", "**/official"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+# zip(strict=...) would change behavior, lambda assignments are a normal idiom here, and renames are out of scope.
+ignore = ["B905", "E731", "E741"]
+# Only safe, behavior-preserving fixes are applied automatically. The other rules report.
+fixable = ["I", "W", "F401", "UP006", "UP007", "UP035", "UP037", "UP045"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["unpaired_rosetta", "experiments", "modalities", "tests"]
+
+# ---------------------------------------------------------------------------------------------------------------
+# pixi: one default environment (vision-language experiments, baselines, tests) and several optional ones.
+# The core versions are those that produced the paper's numbers, so our aligner reproduces them bit for bit on
+# the same hardware.
+# ---------------------------------------------------------------------------------------------------------------
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.system-requirements]
+cuda = "13.0"
+
+[tool.pixi.dependencies]
+python = "==3.14.7"
+numpy = "==2.5.3"
+scipy = "==1.18.0"
+scikit-learn = "==1.9.1"
+libblas = { version = "*", build = "*openblas" }
+pandas = ">=3.0,<4"
+matplotlib = ">=3.10,<4"
+seaborn = "==0.13.2"
+tqdm = ">=4.67,<5"
+submitit = "==1.5.4"
+pytest = ">=9,<10"
+jupyter = ">=1.1,<2"
+ipywidgets = ">=8.1,<9"
+nbformat = ">=5.10"
+nbconvert = ">=7"
+pyyaml = "*"
+fsspec = "<=2026.2.0"  # datasets<5 needs it
+mpmath = "<1.4"        # sympy (torch) needs it
+pyarrow = "*"
+
+[tool.pixi.pypi-dependencies]
+unpaired-rosetta = { path = ".", editable = true }
+torch = { version = "==2.14.0", index = "https://download.pytorch.org/whl/cu130" }
+torchvision = { version = "==0.29.0", index = "https://download.pytorch.org/whl/cu130" }
+pylibmgm = "==1.1.2"
+pot = "==0.9.7.post1"
+transformers = "==5.12.0"  # the stored embeddings were computed with this version
+sentence-transformers = "==5.7.0"
+timm = "==1.0.29"
+datasets = "==4.8.5"
+huggingface-hub = "==1.31.0"
+accelerate = "==1.15.0"
+einops = "==0.8.2"
+sentencepiece = "==0.2.2"
+pycocotools = "==2.0.11"
+scotplus = "==1.0.2"  # SCOT+ baseline (PBMC)
+annoy = "==1.17.3"    # SUE baseline
+diffusers = "==0.38.0"  # RAE encoder of the text-to-image experiment (modalities/image_captions)
+
+[tool.pixi.activation.env]
+# Same floating-point kernels on every x86 CPU. AVX-512 rounds differently from AVX2.
+MKL_CBWR = "AVX2,STRICT"
+ATEN_CPU_CAPABILITY = "avx2"
+
+[tool.pixi.tasks]
+test = "pytest tests"
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+vllm = { features = ["vllm"], no-default-feature = true }
+# other modality pairs (modalities/<pair>/, Sec. 4.3 and App. C.4)
+modalities = { features = ["modalities"], solve-group = "default" }
+mlip = { features = ["mlip"], no-default-feature = true }
+msms = { features = ["msms"], no-default-feature = true }
+
+# ---------------------------------------------------------------------------------------------------------------
+# Optional environment `vllm`: generative token pooling (modalities/image_captions/generative.py).
+# vLLM pins torch 2.13, which cannot share the default solve (torch 2.14, python 3.14).
+# vLLM 0.29.0 computed the paper's generative embeddings.
+# `pixi run -e vllm python -m modalities.image_captions.embed ...`
+# ---------------------------------------------------------------------------------------------------------------
+[tool.pixi.feature.vllm.dependencies]
+python = "3.12.*"
+cuda-version = "13.0.*"
+cuda-toolkit = "13.0.*"  # FlashInfer compiles its sampling kernels on first use
+tqdm = ">=4.67,<5"
+pytest = ">=9,<10"
+
+[tool.pixi.feature.vllm.pypi-dependencies]
+vllm = "==0.29.0"
+torch = { version = "==2.13.0", index = "https://download.pytorch.org/whl/cu130" }
+torchvision = { version = "==0.28.0", index = "https://download.pytorch.org/whl/cu130" }
+torchaudio = { version = "==2.11.0", index = "https://download.pytorch.org/whl/cu130" }
+datasets = "==4.8.5"  # streams the WIT subset from the Hub
+unpaired-rosetta = { path = ".", editable = true }  # the library (the registry imports it)
+
+[tool.pixi.feature.vllm.activation.env]
+CUDA_HOME = "$CONDA_PREFIX"
+CPATH = "$CONDA_PREFIX/targets/x86_64-linux/include"
+PYTHONPATH = "$PIXI_PROJECT_ROOT"
+VLLM_ENABLE_V1_MULTIPROCESSING = "0"  # keep the engine in this process, where the hidden-state hook is installed
+
+# ---------------------------------------------------------------------------------------------------------------
+# Optional environment `modalities`: the default environment plus file readers for the other modality pairs
+# (modalities/<pair>/: whole-slide images, DICOM and NIfTI volumes, MEG recordings, HDF5 tile stores). It shares the
+# default solve group, so shared packages have the same versions. These versions computed the stored embeddings.
+# `pixi run -e modalities python -m modalities.<pair>.embed`
+# ---------------------------------------------------------------------------------------------------------------
+[tool.pixi.feature.modalities.dependencies]
+openslide = "*"  # the C library behind openslide-python
+
+[tool.pixi.feature.modalities.pypi-dependencies]
+h5py = "==3.16.0"
+nibabel = "==5.4.2"
+mne = "==1.13.0"
+openslide-python = "==1.4.6"
+pydicom = "==3.0.2"
+wsidicom = "==0.35.0"
+idc-index = "==0.12.5"
+lighter-zoo = "==0.1.3"  # CT-FM
+monai = "==1.6.0"
+
+# ---------------------------------------------------------------------------------------------------------------
+# Optional environment `mlip`: MACE descriptors of MP-20 (modalities/interatomic_potentials/descriptors.py).
+# MACE 0.3.16 needs torch < 2.9, which cannot share the default solve. These versions computed the stored
+# descriptors. `pixi run -e mlip python -m modalities.interatomic_potentials.descriptors`
+# ---------------------------------------------------------------------------------------------------------------
+[tool.pixi.feature.mlip]
+system-requirements = { cuda = "12.6" }
+
+[tool.pixi.feature.mlip.dependencies]
+python = "3.12.*"
+pytest = ">=9,<10"
+
+[tool.pixi.feature.mlip.pypi-dependencies]
+torch = { version = "==2.8.0", index = "https://download.pytorch.org/whl/cu126" }
+mace-torch = "==0.3.16"
+ase = "==3.29.0"
+pymatgen = "==2026.5.4"
+pandas = "==3.0.5"
+
+[tool.pixi.feature.mlip.activation.env]
+PYTHONPATH = "$PIXI_PROJECT_ROOT"
+
+# ---------------------------------------------------------------------------------------------------------------
+# Optional environment `msms`: DreaMS embeddings of MS/MS spectra and RDKit fingerprints of the molecules
+# (modalities/msms_molecules/embed.py). DreaMS pins torch 2.2.1 and numpy 1.25, which cannot share the default
+# solve. `pixi run -e msms python -m modalities.msms_molecules.embed`
+# ---------------------------------------------------------------------------------------------------------------
+[tool.pixi.feature.msms]
+system-requirements = { cuda = "12.1", libc = { family = "glibc", version = "2.34" } }  # pyopenms wheels need glibc 2.34
+
+[tool.pixi.feature.msms.dependencies]
+python = "3.11.*"
+pytest = ">=8,<10"
+
+[tool.pixi.feature.msms.pypi-dependencies]
+dreams = { git = "https://github.com/pluskal-lab/DreaMS.git", rev = "dbec3a0b514a99e5056cfccde4559fda8cfe8129" }
+msml = { git = "https://github.com/roman-bushuiev/msml_legacy_architectures.git", rev = "d35b34b0caee38348098cda852bff30d8b25cd25" }
+transformers = ">=4.38,<4.50"
+huggingface-hub = "<1"
+
+[tool.pixi.feature.msms.activation.env]
+PYTHONPATH = "$PIXI_PROJECT_ROOT"
+
+# ---------------------------------------------------------------------------------------------------------------
+# Optional environment `platonic-brain`: the NSD encoders and alignments of Marcos-Manchón et al. (2026), computed
+# with the authors' code (modalities/brain_scans/pipeline, fetched by ./clone.sh). mvlearn's MCCA needs
+# scikit-learn < 1.6 and numpy < 2, which cannot share the default solve. These versions computed the stored
+# encoders. `modalities/brain_scans/pipeline/run_pipeline.sh <stage>`
+# ---------------------------------------------------------------------------------------------------------------
+[tool.pixi.environments.platonic-brain]
+features = ["platonic-brain"]
+no-default-feature = true
+
+[tool.pixi.feature.platonic-brain]
+system-requirements = { cuda = "12.8" }
+
+[tool.pixi.feature.platonic-brain.dependencies]
+python = "3.11.*"
+numpy = "==1.26.4"
+scipy = "==1.17.1"
+scikit-learn = "==1.5.2"
+pandas = "==3.0.5"
+nibabel = "==5.4.2"
+h5py = "*"
+matplotlib = "*"
+seaborn = ">=0.13"
+tqdm = "*"
+wandb = "*"  # imported by their training scripts, disabled below
+lazy_loader = "*"
+pillow = "*"
+joblib = "*"
+pytest = "*"
+
+[tool.pixi.feature.platonic-brain.pypi-dependencies]
+mvlearn = "==0.4.1"
+torch = { version = "==2.11.0", index = "https://download.pytorch.org/whl/cu128" }
+
+[tool.pixi.feature.platonic-brain.activation.env]
+PYTHONPATH = "$PIXI_PROJECT_ROOT/modalities/brain_scans/pipeline/official/src:$PIXI_PROJECT_ROOT/modalities/brain_scans/pipeline/stubs"
+WANDB_MODE = "disabled"
+
+# ---------------------------------------------------------------------------------------------------------------
+# Optional environment `cellxgene`: the human and mouse cells of the CZ CELLxGENE Census
+# (modalities/single_cell/cross_species.py). tiledbsoma has no wheels for the Python of the default environment.
+# The PCA uses the numpy and scikit-learn versions of the default environment, which computed the stored files.
+# `pixi run -e cellxgene python -m modalities.single_cell.cross_species`
+# ---------------------------------------------------------------------------------------------------------------
+[tool.pixi.environments.cellxgene]
+features = ["cellxgene"]
+no-default-feature = true
+
+[tool.pixi.feature.cellxgene.dependencies]
+python = "3.12.*"
+
+[tool.pixi.feature.cellxgene.pypi-dependencies]
+cellxgene-census = "==1.18.0"
+tiledbsoma = "==2.3.0"
+numpy = "==2.5.3"
+scipy = "==1.18.1"
+scikit-learn = "==1.9.1"
+torch = { version = "==2.14.0", index = "https://download.pytorch.org/whl/cpu" }
+
+[tool.pixi.feature.cellxgene.activation.env]
+PYTHONPATH = "$PIXI_PROJECT_ROOT"
+
+# ---------------------------------------------------------------------------------------------------------------
+# Optional environment `text2image`: training, caption embeddings and sampling of the RAE diffusion model of the
+# text-to-image experiments (Sec. 4.5, App. C.2, modalities/text_to_image/train_rae.sbatch). These versions trained
+# the paper's RAE and sampled its images (torch 2.8 cu129 and timm 0.9.16, as RAE's instructions say). They cannot
+# share the default solve (python 3.14, torch 2.14).
+# `pixi run -e text2image python -m modalities.text_to_image.sample ...`
+# ---------------------------------------------------------------------------------------------------------------
+[tool.pixi.environments.text2image]
+features = ["text2image"]
+no-default-feature = true
+
+[tool.pixi.feature.text2image]
+system-requirements = { cuda = "12.9" }
+
+[tool.pixi.feature.text2image.dependencies]
+python = "3.11.*"
+pytest = ">=9,<10"
+
+[tool.pixi.feature.text2image.pypi-dependencies]
+torch = { version = "==2.8.0", index = "https://download.pytorch.org/whl/cu129" }
+torchvision = { version = "==0.23.0", index = "https://download.pytorch.org/whl/cu129" }
+timm = "==0.9.16"
+torchdiffeq = "==0.2.5"
+transformers = "==4.56.2"
+sentence-transformers = "==5.7.0"
+huggingface-hub = "==0.36.2"
+numpy = "==1.26.0"
+pillow = "==12.3.0"
+omegaconf = "==2.3.0"
+einops = "==0.8.2"
+scipy = "==1.15.3"
+wandb = "==0.28.0"  # imported by RAE's train.py (logging stays off)
+torch-fidelity = "==0.4.0"  # imported by RAE's train.py (online FID, unused)
+torchmetrics = "==1.9.0"
+scikit-learn = "==1.9.1"  # imported with the library (unpaired_rosetta)
+tqdm = "*"
+
+[tool.pixi.feature.text2image.activation.env]
+PYTHONPATH = "$PIXI_PROJECT_ROOT"
+
+# ---------------------------------------------------------------------------------------------------------------
+# Optional environment `t2i-metrics`: the four text-to-image scores of Tables 6 and 7 (modalities/text_to_image/
+# scores.py). It cannot join `text2image`. t2v-metrics (VQAScore) requires image-reward, whose wheels 1.1 to 1.5 pin
+# timm==0.6.13 while RAE needs timm==0.9.16 (1.0 is an sdist that no longer builds). t2v-metrics 1.1 also needs
+# numpy>=1.26.2, but RAE pins numpy==1.26.0. These versions computed the paper's scores.
+# `pixi run -e t2i-metrics python -m modalities.text_to_image.scores`
+# ---------------------------------------------------------------------------------------------------------------
+[tool.pixi.environments.t2i-metrics]
+features = ["t2i-metrics"]
+no-default-feature = true
+
+[tool.pixi.feature.t2i-metrics]
+system-requirements = { cuda = "12.4" }
+
+[tool.pixi.feature.t2i-metrics.dependencies]
+python = "3.11.*"
+
+[tool.pixi.feature.t2i-metrics.pypi-dependencies]
+torch = { version = "==2.6.0", index = "https://download.pytorch.org/whl/cu124" }
+torchvision = { version = "==0.21.0", index = "https://download.pytorch.org/whl/cu124" }
+transformers = "==4.49.0"  # CycleReward's BLIP code imports helpers that transformers 5 removed
+t2v-metrics = "==1.1"  # VQAScore
+cyclereward = "==0.1.7"
+clip = { git = "https://github.com/openai/CLIP.git", rev = "d05afc436d78f1c48dc0dbf8e5980a9d471f35f6" }  # imported by t2v-metrics
+timm = "==0.6.13"
+open-clip-torch = "==2.32.0"
+huggingface-hub = "==0.36.2"
+pillow = "==12.3.0"
+sentencepiece = "==0.2.2"
+accelerate = "==1.15.0"
+word2number = "==1.1"  # TIFA's question filter reads numbers written as words
+
+[tool.pixi.feature.t2i-metrics.activation.env]
+PYTHONPATH = "$PIXI_PROJECT_ROOT"
+
+# ---------------------------------------------------------------------------------------------------------------
+# Optional environment `scale-rae`: Scale-RAE (Tong et al., 2026), the paired reference model of Tables 6 and 7
+# (modalities/text_to_image/scale_rae.py, submodule external/Scale-RAE). Its model code relies on transformers 4.37
+# internals. With the pins of `text2image` (transformers 4.56.2) its SigLIP-2 decoder fails to build
+# (`VITMAE_ATTENTION_CLASSES[config._attn_implementation]` -> KeyError: None), so it uses the upstream pins of its
+# inference path. `pixi run -e scale-rae python -m modalities.text_to_image.scale_rae`
+# ---------------------------------------------------------------------------------------------------------------
+[tool.pixi.environments.scale-rae]
+features = ["scale-rae"]
+no-default-feature = true
+
+[tool.pixi.feature.scale-rae]
+system-requirements = { cuda = "12.1" }
+
+[tool.pixi.feature.scale-rae.dependencies]
+python = "3.10.*"
+
+[tool.pixi.feature.scale-rae.pypi-dependencies]
+torch = { version = "==2.2.0", index = "https://download.pytorch.org/whl/cu121" }
+torchvision = { version = "==0.17.0", index = "https://download.pytorch.org/whl/cu121" }
+transformers = "==4.37.0"
+tokenizers = "==0.15.0"
+sentencepiece = "==0.1.99"
+accelerate = "==0.23.0"
+einops = "==0.6.1"
+einops-exts = "==0.0.4"
+timm = "==0.9.16"
+open-clip-torch = "==2.24.0"
+diffusers = "==0.30.3"
+huggingface-hub = "==0.25.2"
+numpy = "==1.26.4"
+pillow = "==12.3.0"
+ezcolorlog = "==1.0.3"
+tabulate = "*"
+safetensors = "*"
+scikit-learn = "*"  # imported with the library (unpaired_rosetta)
+tqdm = "*"
+
+[tool.pixi.feature.scale-rae.activation.env]
+PYTHONPATH = "$PIXI_PROJECT_ROOT"

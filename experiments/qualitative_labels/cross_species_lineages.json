@@ -1,0 +1,25 @@
+{
+ "comment": "Each of the 138 shared Cell-Ontology types of CrossSpecies-SC assigned to one broad lineage. The list is checked in rather than derived from a keyword rule at plot time, so the grouping is auditable and cannot silently change. Indices are positions in cross_species_types.json, which is the label index of labels_{human,mouse}.pt.",
+ "lineages": {
+  "lymphoid": [7, 28, 37, 46, 47, 48, 63, 64, 65, 66, 67, 71, 72, 76, 78, 103],
+  "myeloid": [8, 9, 10, 15, 18, 27, 32, 39, 40, 41, 55, 57, 59, 60, 61, 62, 68, 69, 70, 74, 99, 100, 125],
+  "erythroid & progenitor": [1, 26, 38, 58, 73, 77, 111, 115],
+  "epithelial": [4, 19, 20, 21, 22, 23, 25, 29, 31, 35, 49, 51, 52, 79, 80, 81, 82, 83, 87, 89, 90, 91, 92, 94, 95, 96, 97, 110, 119, 120, 121, 122, 123, 124, 127],
+  "endothelial": [5, 12, 85, 86, 88, 98, 105, 116, 117, 126],
+  "fibroblast & stromal": [2, 6, 16, 17, 34, 53, 84, 101, 104, 106, 107, 113, 114, 137],
+  "neural & glial": [3, 11, 13, 14, 33, 36, 44, 45, 50, 54, 75, 93, 102, 108, 128, 129, 130, 131, 132, 133, 134, 135, 136],
+  "muscle": [24, 30, 43, 56, 109, 112, 118],
+  "other": [0, 42]
+ },
+ "colors": {
+  "lymphoid": "TUMBlue",
+  "myeloid": "TUMAccentOrange",
+  "erythroid & progenitor": "TUMYellow",
+  "epithelial": "TUMAccentGreen",
+  "endothelial": "TUMPurple",
+  "fibroblast & stromal": "TUMPink",
+  "neural & glial": "TUMDarkGray",
+  "muscle": "TUMSecondaryBlue2",
+  "other": "TUMLightGray"
+ }
+}

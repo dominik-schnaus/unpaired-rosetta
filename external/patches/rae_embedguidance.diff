@@ -1,0 +1,277 @@
+diff --git a/src/stage2/models/DDT.py b/src/stage2/models/DDT.py
+index 433e5d0..805c001 100644
+--- a/src/stage2/models/DDT.py
++++ b/src/stage2/models/DDT.py
+@@ -9,7 +9,7 @@ import torch
+ from torch import nn
+ from .lightningDiT import PatchEmbed, Mlp, NormAttention
+ from timm.models.vision_transformer import PatchEmbed, Mlp
+-from .model_utils import VisionRotaryEmbeddingFast, RMSNorm, SwiGLUFFN, GaussianFourierEmbedding, LabelEmbedder, NormAttention, get_2d_sincos_pos_embed
++from .model_utils import VisionRotaryEmbeddingFast, RMSNorm, SwiGLUFFN, GaussianFourierEmbedding, LabelEmbedder, GuidanceEmbedder, NormAttention, get_2d_sincos_pos_embed
+ import torch.nn.functional as F
+ from typing import *
+ 
+@@ -198,6 +198,7 @@ class DiTwDDTHead(nn.Module):
+             use_rmsnorm=True,
+             wo_shift=False,
+             use_pos_embed: bool = True,
++            guidance_dim: Optional[int] = None,
+     ):
+         super().__init__()
+         self.in_channels = in_channels
+@@ -234,8 +235,15 @@ class DiTwDDTHead(nn.Module):
+         self.s_projector = nn.Linear(
+             self.encoder_hidden_size, self.decoder_hidden_size) if self.encoder_hidden_size != self.decoder_hidden_size else nn.Identity()
+         self.t_embedder = GaussianFourierEmbedding(self.encoder_hidden_size)
+-        self.y_embedder = LabelEmbedder(
+-            num_classes, self.encoder_hidden_size, class_dropout_prob)
++        # guidance_dim switches conditioning from class labels to continuous
++        # image-embedding guidance (no class/text information).
++        self.guidance_dim = guidance_dim
++        if guidance_dim is not None:
++            self.y_embedder = GuidanceEmbedder(
++                guidance_dim, self.encoder_hidden_size, class_dropout_prob)
++        else:
++            self.y_embedder = LabelEmbedder(
++                num_classes, self.encoder_hidden_size, class_dropout_prob)
+         # print(f"x_channel_per_token: {x_channel_per_token}, s_channel_per_token: {s_channel_per_token}")
+         self.final_layer = DDTFinalLayer(
+             self.decoder_hidden_size, 1, x_channel_per_token, use_rmsnorm=use_rmsnorm)
+@@ -297,7 +305,8 @@ class DiTwDDTHead(nn.Module):
+         nn.init.constant_(self.s_embedder.proj.bias, 0)
+ 
+         # Initialize label embedding table:
+-        nn.init.normal_(self.y_embedder.embedding_table.weight, std=0.02)
++        if self.guidance_dim is None:
++            nn.init.normal_(self.y_embedder.embedding_table.weight, std=0.02)
+         if self.use_pos_embed:
+             # Initialize (and freeze) pos_embed by sin-cos embedding:
+             pos_embed = get_2d_sincos_pos_embed(
+diff --git a/src/stage2/models/model_utils.py b/src/stage2/models/model_utils.py
+index 76e6e23..c5f8f85 100644
+--- a/src/stage2/models/model_utils.py
++++ b/src/stage2/models/model_utils.py
+@@ -435,4 +435,37 @@ class LabelEmbedder(nn.Module):
+         if (train and use_dropout) or (force_drop_ids is not None):
+             labels = self.token_drop(labels, force_drop_ids)
+         embeddings = self.embedding_table(labels)
+-        return embeddings
+\ No newline at end of file
++        return embeddings
++
++class GuidanceEmbedder(nn.Module):
++    """
++    Embeds continuous guidance vectors (e.g. a frozen vision model's embedding of the
++    image itself) instead of class labels. Handles dropout to a learned null embedding
++    for classifier-free guidance. No text or class information is involved.
++    """
++    def __init__(self, guidance_dim, hidden_size, dropout_prob):
++        super().__init__()
++        self.projection = nn.Sequential(
++            nn.Linear(guidance_dim, hidden_size),
++            nn.SiLU(),
++            nn.Linear(hidden_size, hidden_size),
++        )
++        self.null_embedding = nn.Parameter(torch.zeros(guidance_dim))
++        self.guidance_dim = guidance_dim
++        self.dropout_prob = dropout_prob
++
++    def token_drop(self, guidance, force_drop_ids=None):
++        """
++        Drops guidance vectors to enable classifier-free guidance.
++        """
++        if force_drop_ids is None:
++            drop_ids = torch.rand(guidance.shape[0], device=guidance.device) < self.dropout_prob
++        else:
++            drop_ids = force_drop_ids == 1
++        return torch.where(drop_ids[:, None], self.null_embedding.to(guidance.dtype), guidance)
++
++    def forward(self, guidance, train, force_drop_ids=None):
++        use_dropout = self.dropout_prob > 0
++        if (train and use_dropout) or (force_drop_ids is not None):
++            guidance = self.token_drop(guidance, force_drop_ids)
++        return self.projection(guidance)
+diff --git a/src/train.py b/src/train.py
+index 5c3132e..41ddbac 100644
+--- a/src/train.py
++++ b/src/train.py
+@@ -4,10 +4,16 @@
+ """
+ A minimal training script for SiT using PyTorch DDP.
+ """
++# Import wandb before anything spawns background threads: its pydantic models run
++# inspect.getmodule at import time, which races against concurrent imports.
++import wandb  # noqa: F401
+ import argparse
+ import logging
+ import math
+ import os
++import signal
++import subprocess
++import sys
+ from collections import defaultdict, OrderedDict
+ import torch
+ # the first flag below was False when we tested this script but True makes A100 training a lot faster:
+@@ -20,7 +26,10 @@ from torch.utils.data.distributed import DistributedSampler
+ from torchvision.datasets import ImageFolder
+ from torchvision import transforms
+ import numpy as np
+-from PIL import Image
++from PIL import Image, ImageFile
++
++# A handful of ImageNet train JPEGs are truncated; decode them anyway.
++ImageFile.LOAD_TRUNCATED_IMAGES = True
+ from copy import deepcopy
+ from glob import glob
+ from time import time
+@@ -68,7 +77,14 @@ def save_checkpoint(
+         "scheduler": scheduler.state_dict() if scheduler is not None else None,
+     }
+     os.makedirs(os.path.dirname(path), exist_ok=True)
+-    torch.save(state, path)
++    # Atomic write: a preemption/kill mid-save must never leave a torn checkpoint
++    # that a later resume would pick (highest epoch) and fail to read. Write to a
++    # temp file, fsync, then rename (atomic on the same filesystem).
++    tmp_path = f"{path}.tmp"
++    torch.save(state, tmp_path)
++    with open(tmp_path, "rb") as f:
++        os.fsync(f.fileno())
++    os.replace(tmp_path, path)
+ 
+ 
+ def load_checkpoint(
+@@ -86,6 +102,18 @@ def load_checkpoint(
+         scheduler.load_state_dict(checkpoint["scheduler"])
+     return checkpoint.get("epoch", 0), checkpoint.get("step", 0)
+ 
++PREEMPTION_REQUESTED = False
++
++
++def _handle_preemption_signal(signum, frame):
++    global PREEMPTION_REQUESTED
++    PREEMPTION_REQUESTED = True
++
++
++signal.signal(signal.SIGUSR1, _handle_preemption_signal)
++signal.signal(signal.SIGTERM, _handle_preemption_signal)
++
++
+ def parse_args() -> argparse.Namespace:
+     parser = argparse.ArgumentParser(description="Train Stage-2 transport model on RAE latents.")
+     parser.add_argument("--config", type=str, required=True, help="YAML config containing stage_1 and stage_2 sections.")
+@@ -119,6 +147,12 @@ def main():
+ 
+     if rae_config is None or model_config is None:
+         raise ValueError("Config must provide both stage_1 and stage_2 sections.")
++    # Image-only conditioning (no class or text): `guidance_encoder: {target: rae_mean}` conditions the model on the
++    # mean-pooled RAE latent of the training image itself instead of its class label.
++    guidance_encoder_config = full_cfg.get("guidance_encoder", None)
++    guidance_from_rae_mean = guidance_encoder_config is not None and guidance_encoder_config.get("target") == "rae_mean"
++    if guidance_encoder_config is not None and not guidance_from_rae_mean:
++        raise ValueError(f"Unknown guidance encoder {guidance_encoder_config}")
+ 
+     def to_dict(cfg_section):
+         if cfg_section is None:
+@@ -218,6 +252,8 @@ def main():
+     rae.eval()
+     model: Stage2ModelProtocol = instantiate_from_config(model_config).to(device) 
+     if args.compile:
++        # Fall back to eager per-graph if inductor fails (small-GPU autotune, etc.).
++        torch._dynamo.config.suppress_errors = True
+         try:
+             rae.encode = torch.compile(rae.encode)
+         except:
+@@ -227,7 +263,7 @@ def main():
+         except:
+             print('MODEL FORWARD compile meets error, falling back to no compile')
+     else:
+-        raise NotImplementedError('ARGS>COMPILE')
++        pass  # no compilation requested
+     ema_model = deepcopy(model).to(device)
+     ema_model.requires_grad_(False)
+     ema_model.eval()
+@@ -309,8 +345,6 @@ def main():
+     n = micro_batch_size
+     if use_guidance:
+         zs = torch.cat([zs, zs], dim=0)
+-        y_null = torch.full((n,), null_label, device=device)
+-        ys = torch.cat([ys, y_null], dim=0)
+         sample_model_kwargs = dict(
+             cfg_scale=guidance_scale,
+             cfg_interval=(t_min, t_max),
+@@ -369,6 +403,8 @@ def main():
+         logger.info(f"Dataset contains {len(loader.dataset)} samples, {steps_per_epoch} steps per epoch.")
+         logger.info(f"Running with world size {world_size}, starting from epoch {start_epoch} to {num_epochs}.")
+ 
++    if rank == 0:
++        (Path(experiment_dir) / "PREEMPT").unlink(missing_ok=True)
+     dist.barrier() 
+     for epoch in range(start_epoch, num_epochs):
+         model.train()
+@@ -395,8 +431,10 @@ def main():
+             labels = labels.to(device)
+             with torch.no_grad(): # TODO: wrap this in autocast?
+                 z = rae.encode(images)
++                if guidance_from_rae_mean:
++                    guidance = torch.nn.functional.normalize(z.flatten(2).mean(-1), dim=-1)
+             optimizer.zero_grad(set_to_none=True)
+-            model_kwargs = dict(y=labels)
++            model_kwargs = dict(y=guidance if guidance_from_rae_mean else labels)
+             with autocast(**autocast_kwargs):
+                 loss = transport.training_losses(ddp_model, z, model_kwargs)["loss"].mean()
+             loss.float()
+@@ -418,6 +456,33 @@ def main():
+                     scheduler.step()
+                 update_ema(ema_model, ddp_model.module, decay=ema_decay)
+             running_loss += loss.item()
++
++            # Preemption handling + periodic mid-epoch safety checkpoint. The
++            # checkpoint stores the current epoch, so a resumed run repeats this
++            # epoch with up-to-date weights/optimizer/EMA state.
++            if global_step % 20 == 0:
++                preempt_marker = Path(experiment_dir) / "PREEMPT"
++                preempt_flag = torch.tensor(
++                    float(PREEMPTION_REQUESTED or preempt_marker.exists()), device=device)
++                dist.all_reduce(preempt_flag, op=dist.ReduceOp.MAX)
++                if preempt_flag.item() > 0:
++                    if rank == 0:
++                        logger.info("Preemption signal received; checkpointing and requeueing...")
++                        save_checkpoint(
++                            f"{checkpoint_dir}/ep-{epoch:07d}.pt",
++                            global_step, epoch, ddp_model, ema_model, optimizer, scheduler,
++                        )
++                        job_id = os.environ.get("SLURM_JOB_ID")
++                        if job_id is not None:
++                            subprocess.run(["scontrol", "requeue", job_id], check=False)
++                    dist.barrier()
++                    dist.destroy_process_group()
++                    sys.exit(0)
++            if rank == 0 and global_step > 0 and global_step % 2000 == 0:
++                save_checkpoint(
++                    f"{checkpoint_dir}/ep-{epoch:07d}.pt",
++                    global_step, epoch, ddp_model, ema_model, optimizer, scheduler,
++                )
+             epoch_metrics['loss'] += loss.detach()
+             
+             if log_interval > 0 and global_step % log_interval == 0 and rank == 0:
+@@ -443,7 +508,7 @@ def main():
+                 with torch.no_grad():
+                     zs_samples = zs[:8] # at most 8 samples
+                     visual_sample_model_kwargs = deepcopy(sample_model_kwargs)
+-                    visual_sample_model_kwargs['y'] = labels[:8] 
++                    visual_sample_model_kwargs['y'] = model_kwargs["y"][:8]
+                     with autocast(**autocast_kwargs):
+                         samples = eval_sampler(zs_samples, ema_model_fn, **visual_sample_model_kwargs)[-1]
+                     samples.float()
+@@ -452,6 +517,11 @@ def main():
+                     samples = rae.decode(samples)
+                     samples = samples.cpu().float()
+                     dist.barrier()
++                    if rank == 0:
++                        from torchvision.utils import save_image
++                        sample_dir = Path(experiment_dir) / "samples"
++                        sample_dir.mkdir(parents=True, exist_ok=True)
++                        save_image(samples.clamp(0, 1), sample_dir / f"step_{global_step:08d}.png", nrow=4)
+                     if args.wandb and rank == 0:
+                         wandb_utils.log_image(samples, global_step)
+                 logger.info("Generating EMA samples done.")
